@@ -1,0 +1,138 @@
+---
+title: "In Class Activity"
+author: "Judy Malas"
+date: "2025-11-24"
+output: 
+  html_document: 
+    toc: true
+---
+
+# Warm up
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load packages}
+
+library(phyloseq)
+library(tidyverse)
+
+```
+
+The landfill dataframe has microbial data and metadata from 26 samples. There are 3 boreholes into the landfill, each with a different number of samples. 
+```{r load dada}
+
+landfill_df <- readRDS("landfill.df")
+
+str(landfill_df) 
+
+```
+Here we add the temperature category column to differentiate the elevated temperature from normal landfills 
+```{r add temp group}
+
+landfill_df <- landfill_df %>%  mutate(temp_grp = ifelse(temp_c > 72, "hot", "normal"))
+
+
+```
+
+
+If we look at just the microbial data associated with each of the samples by selecting the taxonomy columns and the abundance column, we can see that most taxa are classified only up to the family level, several are not classified at the genus and species level. This is because as we get to more specific taxonomy, it becomes harder to differentiate different microbes based on their DNA sequneces. 
+```{r taxonomy}
+
+microbial_data <- landfill_df %>% 
+  select(sample, kingdom, phylum, class, order, family, genus, species, abundance)
+
+head(microbial_data)
+
+
+```
+
+Also notice that the abundance column here is represented as a fraction instead of a whole number. This is because the landfill dataframe has relative abundances, which tells us the relative proportion of each taxon within a sample. If we sum the abundances of all the taxa in a sample, we should get 1. 
+```{r abundances}
+
+#find out the total sum of abundance per sample 
+microbial_data %>% 
+  group_by(sample) %>% 
+  summarise(sum(abundance))
+
+```
+
+# Activity 
+
+There is some issue with each of the plots below. Can you determine the problem and try to fix them?
+
+
+## Ugly Figure 1
+
+Which microbial genera are in the samples of bore A? 
+
+Make a stacked bar plot with the relative abundance of all genera (genus column) in each sample of bore A. 
+
+Hint. Many genera are represent a very low proportion of the total in a sample
+
+```{r figure 1}
+
+landfill_df %>% 
+  filter(bore == "A") %>% 
+  ggplot(aes(sample, abundance, color = genus, fill = genus))+
+  geom_bar(stat="identity")+
+  coord_flip()
+
+```
+
+
+
+## Ugly Figure 2
+
+Which sample has the most Archaea?
+
+Make a stacked bar chart of the relative abundance of Bacteria v. Archaea in each sample. 
+
+Bonus: Can you sort the samples by the relative abundance of Archaea?
+
+```{r}
+
+landfill_df %>% 
+  ggplot(aes(bore, abundance, color = kingdom, fill = kingdom))+
+  geom_bar(stat="identity")+
+  coord_flip()
+
+
+```
+
+
+
+
+## Ugly Figure  3
+
+
+Are there different microbial genera in elevated temperature landfills?
+
+Reproduce figure 1 from the presentation. 
+
+We want the average relative abundance (%) of each genus within the two temperature groups. 
+
+Hint. We have relative abundance as a proportion-- meaning a number from 0 to 1, instead of as a percentage
+
+```{r presentation figure 1}
+
+landfill_df %>% 
+  group_by(sample, temp_grp, genus) %>%  
+  summarize(abundance = sum(abundance), .groups = "drop") %>% #calculate the sum of each genus per sample within the temperature groups
+  group_by(temp_grp, genus) %>% 
+  summarize(mean_relative_abundance = mean(abundance), .groups = "drop") %>%  #calculate the average relative abundance per genus within the temperature groups 
+  drop_na() %>% #remove any observations with NAs for a cleaner plot
+  ggplot(aes(x = genus, y = mean_relative_abundance, fill = temp_grp)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9), alpha=0.7) +
+  theme_bw() +
+  labs(x = "", y = "Average Relative Abundance (%)") +
+  scale_fill_manual(values = c("red", "black")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.title = element_blank())
+
+
+```
+
+
+
+
